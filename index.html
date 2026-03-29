@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --yellow:#e8f56a; --black:#0a0a0a; --white:#f5f5f0; --gray:#888;
+    --yellow:#f5e030; --black:#0a0a0a; --white:#f5f5f0; --gray:#888;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   html{scroll-behavior:smooth;}
@@ -339,6 +339,7 @@
   .or-mobile{display:flex;align-items:center;gap:12px;margin:4px 0;}
   .or-mobile hr{flex:1;border:none;border-top:1.5px solid #ddd;}
   .or-mobile span{font-family:'Bebas Neue',sans-serif;font-size:28px;text-decoration:underline;text-underline-offset:4px;}
+  @media(max-width:699px){.or-col{display:none;}}
   @media(min-width:700px){.or-mobile{display:none;}}
 
   

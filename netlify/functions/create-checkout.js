@@ -1,0 +1,111 @@
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
+// Spot tracking — stored in Stripe product metadata for simplicity
+const JUST_SHOW_UP_MAX = 5;
+const FULLY_COMMIT_MAX = 0; // sold out
+
+const PRICES = {
+  just_show_up:  "price_1TG3q6RNAzZbdp5Su7upgIkW",
+  fully_commit:  "price_1TG3rORNAzZbdp5SA2fED5EQ",
+  addon_1on1:    "price_1TG3rtRNAzZbdp5S6zIDlkWV",
+  addon_early:   "price_1TG3uXRNAzZbdp5SRByKKbJH",
+};
+
+exports.handler = async (event) => {
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Content-Type": "application/json",
+  };
+
+  // Handle CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers, body: "" };
+  }
+
+  // GET — return current spot counts
+  if (event.httpMethod === "GET") {
+    try {
+      const sessions = await stripe.checkout.sessions.list({
+        limit: 100,
+        status: "complete",
+      });
+
+      let justShowUpSold = 0;
+      let fullyCommitSold = 0;
+
+      for (const session of sessions.data) {
+        const items = await stripe.checkout.sessions.listLineItems(session.id);
+        for (const item of items.data) {
+          if (item.price?.id === PRICES.just_show_up) justShowUpSold += item.quantity;
+          if (item.price?.id === PRICES.fully_commit) fullyCommitSold += item.quantity;
+        }
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          just_show_up: { max: JUST_SHOW_UP_MAX, sold: justShowUpSold, remaining: Math.max(0, JUST_SHOW_UP_MAX - justShowUpSold) },
+          fully_commit: { max: FULLY_COMMIT_MAX, sold: fullyCommitSold, remaining: 0 },
+        }),
+      };
+    } catch (err) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+    }
+  }
+
+  // POST — create checkout session
+  if (event.httpMethod === "POST") {
+    try {
+      const { package: pkg, addons = [] } = JSON.parse(event.body);
+
+      // Check availability
+      const sessions = await stripe.checkout.sessions.list({ limit: 100, status: "complete" });
+      let justShowUpSold = 0;
+      for (const session of sessions.data) {
+        const items = await stripe.checkout.sessions.listLineItems(session.id);
+        for (const item of items.data) {
+          if (item.price?.id === PRICES.just_show_up) justShowUpSold += item.quantity;
+        }
+      }
+
+      if (pkg === "just_show_up" && justShowUpSold >= JUST_SHOW_UP_MAX) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Sorry — this package is now sold out." }) };
+      }
+      if (pkg === "fully_commit") {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Fully Commit is sold out." }) };
+      }
+
+      // Build line items
+      const lineItems = [{ price: PRICES[pkg], quantity: 1 }];
+      for (const addon of addons) {
+        if (PRICES[addon]) lineItems.push({ price: PRICES[addon], quantity: 1 });
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items: lineItems,
+        success_url: `${event.headers.origin || "https://blacksheepclubretreats.com"}/success.html`,
+        cancel_url:  `${event.headers.origin || "https://blacksheepclubretreats.com"}/#packages`,
+        billing_address_collection: "auto",
+        phone_number_collection: { enabled: true },
+        custom_fields: [
+          {
+            key: "instagram",
+            label: { type: "custom", custom: "Instagram handle (optional)" },
+            type: "text",
+            optional: true,
+          },
+        ],
+        metadata: { package: pkg, addons: addons.join(",") },
+      });
+
+      return { statusCode: 200, headers, body: JSON.stringify({ url: session.url }) };
+    } catch (err) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+    }
+  }
+
+  return { statusCode: 405, headers, body: JSON.stringify({ error: "Method not allowed" }) };
+};

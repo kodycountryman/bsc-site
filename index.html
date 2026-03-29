@@ -35,9 +35,9 @@
   .hero-title-block{flex:1;min-width:0;}
   .hero-main-title{
     font-family:'Barlow Condensed',sans-serif;font-weight:900;
-    font-size:clamp(22px,10vw,110px);line-height:.92;text-transform:uppercase;letter-spacing:-1px;
-    white-space:nowrap;
+    font-size:clamp(22px,10vw,110px);line-height:1;text-transform:uppercase;letter-spacing:0;
   }
+  .hero-main-title span{display:block;white-space:nowrap;}
   .hero-edition{
     font-family:'Barlow Condensed',sans-serif;font-weight:700;
     font-size:clamp(11px,3vw,18px);text-transform:uppercase;letter-spacing:2px;color:#666;
@@ -527,7 +527,7 @@
 <section class="hero">
   <div class="hero-top">
     <div class="hero-title-block">
-      <div class="hero-main-title">Black Sheep<br>Club Retreat</div>
+      <div class="hero-main-title"><span>Black Sheep</span><span>Club Retreat</span></div>
       <div class="hero-edition">1st Edition</div>
     </div>
     <div class="date-circle-wrap">

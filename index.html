@@ -348,8 +348,8 @@
 
   
 
-  .packages .section-title { font-size: clamp(28px, 5vw, 56px); }
-  .schedule-section .section-title { font-size: clamp(32px, 6vw, 64px); }
+  .packages .section-title { font-size: clamp(16px, 3.2vw, 48px); white-space: nowrap; }
+  .schedule-section .section-title { font-size: clamp(32px, 6vw, 64px); white-space: nowrap; }
   .email-section .section-title { font-size: clamp(28px, 5vw, 56px); white-space: nowrap; }
 
   /* ── PAY PAGE ── */
@@ -521,8 +521,8 @@
   .footer-text a:hover{color:#666;}
 
   /* ── SITE NAV ── */
-  .site-nav{position:fixed;top:0;left:0;right:0;z-index:1000;transition:background 0.3s ease,box-shadow 0.3s ease;}
-  .site-nav.scrolled{background:#fff;box-shadow:0 2px 16px rgba(0,0,0,0.08);}
+  .site-nav{position:fixed;top:0;left:0;right:0;z-index:1000;opacity:0;transform:translateY(-8px);pointer-events:none;transition:opacity 0.3s ease,transform 0.3s ease,background 0.3s ease,box-shadow 0.3s ease;}
+  .site-nav.scrolled{opacity:1;transform:translateY(0);pointer-events:auto;background:#fff;box-shadow:0 2px 16px rgba(0,0,0,0.08);}
   .nav-inner{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;gap:16px;}
   @media(min-width:768px){.nav-inner{padding:14px 40px;}}
   .nav-logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;text-transform:uppercase;letter-spacing:3px;color:var(--black);text-decoration:none;}

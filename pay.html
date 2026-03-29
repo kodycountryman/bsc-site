@@ -291,63 +291,48 @@
 <!-- Footer -->
 <div class="page-footer">
   <p class="footer-text">
-    Questions? <a href="mailto:dmausjr88@gmail.com">dmausjr88@gmail.com</a>
+    Questions? <a href="/cdn-cgi/l/email-protection#4f2b222e3a3c253d77770f28222e2623612c2022"><span class="__cf_email__" data-cfemail="5430393521273e266c6c143339353d387a373b39">[email&#160;protected]</span></a>
     &nbsp;·&nbsp; <a href="/">Back to site</a>
   </p>
 </div>
 
-<script>
-(function() {
-  var FC_LINKS = {
-    "none":  "https://buy.stripe.com/5kQeVfcwzgjG9pAbYy3Je01",
-    "1on1":  "https://buy.stripe.com/6oUbJ3fIL1oM7hse6G3Je07",
-    "early": "https://buy.stripe.com/4gM8wReEH3wUcBM9Qq3Je08",
-    "both":  "https://buy.stripe.com/cNifZjgMP4AY45g8Mm3Je09"
-  };
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+const FC_LINKS = {
+  "none":  "https://buy.stripe.com/5kQeVfcwzgjG9pAbYy3Je01",
+  "1on1":  "https://buy.stripe.com/6oUbJ3fIL1oM7hse6G3Je07",
+  "early": "https://buy.stripe.com/4gM8wReEH3wUcBM9Qq3Je08",
+  "both":  "https://buy.stripe.com/cNifZjgMP4AY45g8Mm3Je09",
+};
 
-  function updateFC() {
-    var cb1on1  = document.getElementById("fc1on1");
-    var cbEarly = document.getElementById("fcEarly");
-    if (!cb1on1 || !cbEarly) return;
+function updateFC() {
+  const has1on1  = document.getElementById("fc1on1").checked;
+  const hasEarly = document.getElementById("fcEarly").checked;
 
-    var has1on1  = cb1on1.checked;
-    var hasEarly = cbEarly.checked;
+  // Update totals
+  let total = 799;
+  if (has1on1)  total += 97;
+  if (hasEarly) total += 49;
+  document.getElementById("fcTotal").textContent = "$" + total;
 
-    // Update total
-    var total = 799;
-    if (has1on1)  total += 97;
-    if (hasEarly) total += 49;
-    document.getElementById("fcTotal").textContent = "$" + total;
+  // Style selected rows
+  document.getElementById("fc1on1Label").classList.toggle("selected", has1on1);
+  document.getElementById("fcEarlyLabel").classList.toggle("selected", hasEarly);
 
-    // Highlight selected rows
-    document.getElementById("fc1on1Label").classList.toggle("selected", has1on1);
-    document.getElementById("fcEarlyLabel").classList.toggle("selected", hasEarly);
+  // Route to correct Stripe link
+  let key = "none";
+  if (has1on1 && hasEarly) key = "both";
+  else if (has1on1)        key = "1on1";
+  else if (hasEarly)       key = "early";
+  document.getElementById("fcPayBtn").href = FC_LINKS[key];
+}
 
-    // Route Stripe link
-    var key = "none";
-    if (has1on1 && hasEarly) key = "both";
-    else if (has1on1)        key = "1on1";
-    else if (hasEarly)       key = "early";
-    document.getElementById("fcPayBtn").href = FC_LINKS[key];
-  }
-
-  function attachFC() {
-    var cb1   = document.getElementById("fc1on1");
-    var cb2   = document.getElementById("fcEarly");
-    if (cb1) cb1.addEventListener("change", updateFC);
-    if (cb2) cb2.addEventListener("change", updateFC);
-  }
-
-  // Attach immediately if DOM ready, else wait
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", attachFC);
-  } else {
-    attachFC();
-  }
-
-  // Also expose globally so hash-routing re-attach can call it
-  window.attachFCListeners = attachFC;
-})();
+// Attach listeners on load — more reliable than inline onchange
+document.addEventListener("DOMContentLoaded", function() {
+  var cb1 = document.getElementById("fc1on1");
+  var cb2 = document.getElementById("fcEarly");
+  if (cb1) cb1.addEventListener("change", updateFC);
+  if (cb2) cb2.addEventListener("change", updateFC);
+});
 </script>
 
 </body>

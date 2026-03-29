@@ -1,7 +1,5 @@
-import Stripe from "stripe";
-
 const JUST_SHOW_UP_MAX = 5;
-const FULLY_COMMIT_MAX = 0; // sold out
+const FULLY_COMMIT_MAX = 0;
 
 const PRICES = {
   just_show_up: "price_1TG3q6RNAzZbdp5Su7upgIkW",
@@ -10,33 +8,50 @@ const PRICES = {
   addon_early:   "price_1TG3uXRNAzZbdp5SRByKKbJH",
 };
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Content-Type": "application/json",
+};
+
+function stripeAuth(key) {
+  return { Authorization: `Bearer ${key}` };
+}
+
+async function listCompletedSessions(key) {
+  const res = await fetch(
+    "https://api.stripe.com/v1/checkout/sessions?limit=100&status=complete",
+    { headers: stripeAuth(key) }
+  );
+  const data = await res.json();
+  return data.data || [];
+}
+
+async function listLineItems(sessionId, key) {
+  const res = await fetch(
+    `https://api.stripe.com/v1/checkout/sessions/${sessionId}/line_items`,
+    { headers: stripeAuth(key) }
+  );
+  const data = await res.json();
+  return data.data || [];
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
-
-  const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-    apiVersion: "2023-10-16",
-    httpClient: Stripe.createFetchHttpClient(),
-  });
-
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json",
-  };
+  const key = env.STRIPE_SECRET_KEY;
 
   if (request.method === "OPTIONS") {
-    return new Response("", { status: 200, headers });
+    return new Response("", { status: 200, headers: CORS });
   }
 
   // GET — return current spot counts
   if (request.method === "GET") {
     try {
-      const sessions = await stripe.checkout.sessions.list({ limit: 100, status: "complete" });
-      let justShowUpSold = 0;
-      let fullyCommitSold = 0;
-      for (const session of sessions.data) {
-        const items = await stripe.checkout.sessions.listLineItems(session.id);
-        for (const item of items.data) {
+      const sessions = await listCompletedSessions(key);
+      let justShowUpSold = 0, fullyCommitSold = 0;
+      for (const session of sessions) {
+        const items = await listLineItems(session.id, key);
+        for (const item of items) {
           if (item.price?.id === PRICES.just_show_up) justShowUpSold += item.quantity;
           if (item.price?.id === PRICES.fully_commit) fullyCommitSold += item.quantity;
         }
@@ -44,9 +59,9 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({
         just_show_up: { max: JUST_SHOW_UP_MAX, sold: justShowUpSold, remaining: Math.max(0, JUST_SHOW_UP_MAX - justShowUpSold) },
         fully_commit: { max: FULLY_COMMIT_MAX, sold: fullyCommitSold, remaining: 0 },
-      }), { status: 200, headers });
+      }), { status: 200, headers: CORS });
     } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), { status: 500, headers });
+      return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: CORS });
     }
   }
 
@@ -56,49 +71,64 @@ export async function onRequest(context) {
       const { package: pkg, addons = [] } = await request.json();
 
       // Check availability
-      const sessions = await stripe.checkout.sessions.list({ limit: 100, status: "complete" });
+      const sessions = await listCompletedSessions(key);
       let justShowUpSold = 0;
-      for (const session of sessions.data) {
-        const items = await stripe.checkout.sessions.listLineItems(session.id);
-        for (const item of items.data) {
+      for (const session of sessions) {
+        const items = await listLineItems(session.id, key);
+        for (const item of items) {
           if (item.price?.id === PRICES.just_show_up) justShowUpSold += item.quantity;
         }
       }
 
       if (pkg === "just_show_up" && justShowUpSold >= JUST_SHOW_UP_MAX) {
-        return new Response(JSON.stringify({ error: "Sorry — this package is now sold out." }), { status: 400, headers });
+        return new Response(JSON.stringify({ error: "Sorry — this package is now sold out." }), { status: 400, headers: CORS });
       }
       if (pkg === "fully_commit") {
-        return new Response(JSON.stringify({ error: "Fully Commit is sold out." }), { status: 400, headers });
-      }
-
-      const lineItems = [{ price: PRICES[pkg], quantity: 1 }];
-      for (const addon of addons) {
-        if (PRICES[addon]) lineItems.push({ price: PRICES[addon], quantity: 1 });
+        return new Response(JSON.stringify({ error: "Fully Commit is sold out." }), { status: 400, headers: CORS });
       }
 
       const origin = new URL(request.url).origin;
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: lineItems,
-        success_url: `${origin}/success.html`,
-        cancel_url:  `${origin}/#packages`,
-        billing_address_collection: "auto",
-        phone_number_collection: { enabled: true },
-        custom_fields: [{
-          key: "instagram",
-          label: { type: "custom", custom: "Instagram handle (optional)" },
-          type: "text",
-          optional: true,
-        }],
-        metadata: { package: pkg, addons: addons.join(",") },
+      const lineItems = [
+        { price: PRICES[pkg], quantity: 1 },
+        ...addons.filter(a => PRICES[a]).map(a => ({ price: PRICES[a], quantity: 1 })),
+      ];
+
+      // Build Stripe form-encoded body (bracket notation for nested params)
+      const params = new URLSearchParams();
+      params.set("mode", "payment");
+      params.set("success_url", `${origin}/success.html`);
+      params.set("cancel_url", `${origin}/#packages`);
+      params.set("billing_address_collection", "auto");
+      params.set("phone_number_collection[enabled]", "true");
+      params.set("custom_fields[0][key]", "instagram");
+      params.set("custom_fields[0][label][type]", "custom");
+      params.set("custom_fields[0][label][custom]", "Instagram handle (optional)");
+      params.set("custom_fields[0][type]", "text");
+      params.set("custom_fields[0][optional]", "true");
+      params.set("metadata[package]", pkg);
+      params.set("metadata[addons]", addons.join(","));
+      lineItems.forEach((item, i) => {
+        params.set(`line_items[${i}][price]`, item.price);
+        params.set(`line_items[${i}][quantity]`, "1");
       });
 
-      return new Response(JSON.stringify({ url: session.url }), { status: 200, headers });
+      const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+        method: "POST",
+        headers: {
+          ...stripeAuth(key),
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      });
+
+      const session = await res.json();
+      if (session.error) throw new Error(session.error.message);
+
+      return new Response(JSON.stringify({ url: session.url }), { status: 200, headers: CORS });
     } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), { status: 500, headers });
+      return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: CORS });
     }
   }
 
-  return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers });
+  return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: CORS });
 }
